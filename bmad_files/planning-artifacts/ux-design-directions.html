@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Green-Rock Design Directions</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: #F0F2F6;
+            color: #262730;
+        }
+        h1 { text-align: center; color: #1F3A5F; }
+        p.subtitle { text-align: center; max-width: 600px; margin: 0 auto 40px; }
+        
+        .container {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .wireframe-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 350px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .wireframe-header {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            background: #fafafa;
+        }
+        .wireframe-header h3 { margin: 0; color: #1F3A5F; font-size: 16px;}
+        .wireframe-header p { margin: 5px 0 0; font-size: 12px; color: #666; }
+
+        .wireframe-body {
+            padding: 15px;
+            flex-grow: 1;
+            background: #fff;
+            position: relative;
+        }
+
+        /* Mock UI Elements */
+        .mock-nav { height: 20px; background: #1F3A5F; border-radius: 4px; margin-bottom: 15px; }
+        .mock-title { height: 16px; background: #eee; width: 60%; border-radius: 4px; margin-bottom: 20px;}
+        .mock-text { height: 8px; background: #f0f0f0; width: 100%; border-radius: 4px; margin-bottom: 8px;}
+        .mock-text.short { width: 80%; }
+        
+        .mock-chart { background: #f8f9fa; border: 1px solid #eee; border-radius: 4px; display: flex; align-items: flex-end; padding: 10px; gap: 4px; margin-top: 15px; margin-bottom: 15px;}
+        .mock-bar { background: #1F3A5F; flex: 1; border-radius: 2px 2px 0 0; }
+        .mock-bar.red { background: #D32F2F; }
+        .mock-bar.green { background: #388E3C; }
+
+        .mock-table { border: 1px solid #eee; border-radius: 4px; padding: 10px; }
+        .mock-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px solid #f0f0f0; padding-bottom: 4px; }
+        .mock-cell { height: 8px; width: 30%; background: #eee; border-radius: 2px;}
+
+        /* Layout Types */
+        /* 1. Grid Dashboard */
+        .grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .grid-layout .mock-chart { margin: 0; height: 60px; }
+
+        /* 3. Split Layout */
+        .split-layout { display: flex; gap: 10px; height: 100%;}
+        .split-sidebar { width: 30%; border-right: 1px solid #eee; padding-right: 10px;}
+        .split-main { width: 70%; overflow-y: auto;}
+
+        /* Badges */
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; margin-bottom: 10px;}
+        .badge.reject { background: #ffebee; color: #c62828; }
+        .badge.accept { background: #e8f5e9; color: #2e7d32; }
+
+    </style>
+</head>
+<body>
+
+    <h1>Design Direction Explorations</h1>
+    <p class="subtitle">Visually comparing layout architectures for the Green-Rock Streamlit Dashboard. Hover or review the structures below.</p>
+
+    <div class="container">
+        
+        <!-- Direction 1 -->
+        <div class="wireframe-card">
+            <div class="wireframe-header">
+                <h3>1. The Standard Grid Dashboard</h3>
+                <p>Classic "at a glance" 2x2 grid approach.</p>
+                <div class="badge reject">ANTI-PATTERN</div>
+            </div>
+            <div class="wireframe-body">
+                <div class="mock-nav"></div>
+                <div class="grid-layout">
+                    <div class="mock-chart" style="height: 80px;">
+                        <div class="mock-bar" style="height: 40%;"></div>
+                        <div class="mock-bar" style="height: 70%;"></div>
+                        <div class="mock-bar green" style="height: 90%;"></div>
+                    </div>
+                    <div class="mock-chart" style="height: 80px;">
+                         <div class="mock-bar red" style="height: 60%;"></div>
+                        <div class="mock-bar red" style="height: 30%;"></div>
+                         <div class="mock-bar" style="height: 80%;"></div>
+                    </div>
+                     <div class="mock-table" style="grid-column: span 2;">
+                        <div class="mock-row"><div class="mock-cell"></div><div class="mock-cell"></div></div>
+                        <div class="mock-row"><div class="mock-cell"></div><div class="mock-cell"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Direction 2 -->
+        <div class="wireframe-card" style="border: 2px solid #388E3C;">
+            <div class="wireframe-header">
+                <h3>2. The Pitch Deck Scroll (Recommended)</h3>
+                <p>Single column, sequential storytelling.</p>
+                <div class="badge accept">CHOSEN DIRECTION</div>
+            </div>
+            <div class="wireframe-body" style="height: 400px; overflow: hidden; position: relative;">
+                <div class="mock-nav"></div>
+                <div class="mock-title"></div>
+                <div class="mock-text"></div>
+                <div class="mock-text short"></div>
+                
+                <div class="mock-chart" style="height: 80px;">
+                    <div class="mock-bar" style="height: 20%;"></div>
+                    <div class="mock-bar" style="height: 50%;"></div>
+                    <div class="mock-bar" style="height: 60%;"></div>
+                    <div class="mock-bar green" style="height: 80%;"></div>
+                </div>
+
+                <div class="mock-title" style="width: 40%;"></div>
+                <div class="mock-text"></div>
+                
+                <div class="mock-chart" style="height: 100px;">
+                    <div class="mock-bar" style="height: 90%; width: 20px;"></div>
+                    <div class="mock-bar red" style="height: -20%; width: 20px; align-self: flex-start; margin-bottom: 90%;"></div>
+                    <div class="mock-bar green" style="height: 30%; width: 20px;"></div>
+                </div>
+                
+                <!-- gradient fade to show scrolling -->
+                <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 40px; background: linear-gradient(transparent, white);"></div>
+            </div>
+        </div>
+
+        <!-- Direction 3 -->
+        <div class="wireframe-card">
+            <div class="wireframe-header">
+                <h3>3. The Split Narrative View</h3>
+                <p>Sticky text sidebar, scrolling charts on right.</p>
+                <div class="badge reject">TOO COMPLEX FOR STREAMLIT</div>
+            </div>
+            <div class="wireframe-body">
+                <div class="mock-nav"></div>
+                <div class="split-layout">
+                    <div class="split-sidebar">
+                        <div class="mock-text"></div>
+                        <div class="mock-text short"></div>
+                        <div style="height: 20px;"></div>
+                        <div class="mock-text"></div>
+                        <div class="mock-text"></div>
+                    </div>
+                    <div class="split-main">
+                        <div class="mock-chart" style="height: 60px;">
+                            <div class="mock-bar" style="height: 100%;"></div>
+                        </div>
+                        <div class="mock-chart" style="height: 60px;">
+                            <div class="mock-bar red" style="height: 50%;"></div>
+                        </div>
+                         <div class="mock-table">
+                            <div class="mock-row"><div class="mock-cell"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

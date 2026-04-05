@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Streamlit
+.streamlit/*
+!.streamlit/config.toml
+
+# docker
+.env
+
+# MacOS
+.DS_Store
+
+# AI Tools
+.gemini/
+.iflow/
+
+# Documentation
+docs/
