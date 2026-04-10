@@ -1,48 +1,28 @@
 ---
-stepsCompleted: ['step-01-preflight-and-context', 'step-02-identify-targets', 'step-03-generate-tests', 'step-03c-aggregate', 'step-04-validate-and-summarize']
-lastStep: 'step-04-validate-and-summarize'
-lastSaved: '2026-04-05T20:56:33Z'
-inputDocuments:
-  - 'bmad_files/implementation-artifacts/1-1-initial-application-scaffolding-visual-theming.md'
-  - 'tests/conftest.py'
-  - '_bmad/tea/config.yaml'
+stepsCompleted: ['step-01-preflight-and-context', 'step-02-identify-targets', 'step-03-generate-tests', 'step-03c-aggregate']
+lastStep: 'step-03c-aggregate'
+lastSaved: '2026-04-09'
+inputDocuments: [
+    'bmad_files/implementation-artifacts/1-4-baseline-ma-crossover-classifier.md',
+    'bmad_files/planning-artifacts/prd.md',
+    'bmad_files/planning-artifacts/architecture.md'
+]
 ---
 
-# Automation Summary
+# Test Automation Summary: 1.4 Baseline MA Crossover Classifier
 
-**Goal**: Expand test automation coverage for the "Initial Application Scaffolding & Visual Theming" implementation.
+## 1. Preflight & Context
+- **Detected Stack:** `backend` (Python)
+- **Framework:** `pytest`
+- **Target Module:** `src/green_rock/domain/quant_model.py`
 
-## 1. Context & Inputs
-- **Detected Stack**: `backend` (Python)
-- **Framework**: pytest
-- **Mode**: BMad-Integrated (Targeting story `1-1-initial-application-scaffolding-visual-theming.md`)
-- **Acceptance Criteria Targeted**:
-  1. Environment installation and Streamlit app boot.
-  2. Rigid project directory structure.
-  3. UI uses `layout="wide"`.
-  4. Light Classic theme configuration.
-  5. Zero-config cloud deployment.
+## 2. Operations Performed
+- **Cleaned Noise**: Verified only one dedicated test file (`tests/unit/test_domain.py`) exists for the domain layer, ensuring no redundant parallel test executions as seen in previous stories.
+- **Improved Boundary Testing**: Added `test_calculate_baseline_regime_medium_spread` to verify the neutral "Medium" risk classification when the MA ratio falls within the 1% range.
+- **Robustness Expansion**: Implemented `test_calculate_baseline_regime_handles_nans` to confirm that internal price NaNs propagate correctly to regime NaNs instead of causing mathematical errors.
+- **Architectural Verification**: Added `test_calculate_baseline_regime_duplicate_index` to ensure the row-based rolling calculations are resilient to non-unique timestamps in provided dataframes.
 
-## 2. Coverage Plan
-- **Unit Testing (P0)**: Verify essential decoupled architecture folders in `test_architecture.py`.
-- **Integration Testing (P1)**: Parse and validate Light Classic theme attributes (`primaryColor`, `backgroundColor`, etc.) from `.streamlit/config.toml` in `test_theme.py`.
-- **E2E Testing (P0)**: Boot application using `streamlit.testing.v1.AppTest` and assert `layout="wide"` usage from source in `test_streamlit_boot.py`.
-
-## 3. Test Files Created
-- ✅ `tests/unit/test_architecture.py` — Validated architectural scaffolding.
-- ✅ `tests/integration/test_theme.py` — Validated Streamlit global theme config.
-- ✅ `tests/e2e/test_streamlit_boot.py` — Validated full Streamlit startup and configuration.
-
-## 4. Subagent Aggregation & Execution
-- **Subagent Execution**: SEQUENTIAL
-- **Performance**: Baseline execution
-- **Total Tests Generated**: 3
-- **Priority Breakdown**:
-  - `P0`: 2
-  - `P1`: 1
-  - `P2`: 0
-  - `P3`: 0
-- **Validation**: `pytest tests/` executed. All tests passed.
-
-## 5. Next Recommended Steps
-- Consider setting up CI pipelines (Workflow: `bmad-testarch-ci`) to continuously assert this scaffolding throughout development.
+## 3. Final Status
+- All 10 consolidated unit tests pass (incl. previously existing path coverage).
+- Domain logic is verified against all primary edge cases described in the review findings and story requirements.
+- Cyclomatic complexity remains low, and the code is fully decoupled from the UI layer.
