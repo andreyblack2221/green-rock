@@ -88,3 +88,94 @@ def plot_baseline_timeline(df: pd.DataFrame) -> go.Figure:
     )
     
     return fig
+
+def plot_feature_importance(importances: dict[str, float]) -> go.Figure:
+    """
+    Renders a horizontal bar chart of feature importances.
+    """
+    if not importances:
+        return go.Figure()
+
+    # Sort descending
+    sorted_items = sorted(importances.items(), key=lambda x: x[1], reverse=True)
+    features = [k for k, v in sorted_items]
+    values = [v for k, v in sorted_items]
+
+    # Plotly puts the first item at the bottom for horizontal bar charts by default,
+    # so we should reverse the sorted items to have the largest at the top.
+    features.reverse()
+    values.reverse()
+
+    fig = go.Figure(go.Bar(
+        x=values,
+        y=features,
+        orientation='h',
+        marker=dict(color='#1F3A5F')
+    ))
+
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=30, b=0),
+        title="Feature Importances",
+        xaxis_title="Importance",
+        yaxis_title="",
+        template="plotly_white",
+        height=max(300, len(features) * 40)
+    )
+
+    return fig
+
+def plot_xai_waterfall(xai_attribution: dict) -> go.Figure:
+    """
+    Renders a Waterfall chart for the daily risk attribution.
+    """
+    if not xai_attribution:
+        return go.Figure()
+
+    base_value = xai_attribution.get("base_value", 0.0)
+    
+    # Filter out base_value and predicted_class to get just feature contributions
+    features = []
+    contributions = []
+    for k, v in xai_attribution.items():
+        if k not in ["base_value", "predicted_class"]:
+            features.append(k)
+            contributions.append(v)
+            
+    # Sort by absolute contribution to show most impactful first
+    sorted_items = sorted(zip(features, contributions), key=lambda x: abs(x[1]), reverse=True)
+    sorted_features = [x[0] for x in sorted_items]
+    sorted_contributions = [x[1] for x in sorted_items]
+    
+    measure = ["absolute"] + ["relative"] * len(sorted_features) + ["total"]
+    x = ["Base Probability"] + sorted_features + ["Final Probability"]
+    y = [base_value] + sorted_contributions + [base_value + sum(sorted_contributions)]
+    
+    # Text annotations for values
+    text = [f"{val:.3f}" for val in y]
+    
+    fig = go.Figure(go.Waterfall(
+        name="Risk Attribution",
+        orientation="v",
+        measure=measure,
+        x=x,
+        textposition="outside",
+        text=text,
+        y=y,
+        connector={"line": {"color": "rgb(63, 63, 63)"}},
+        decreasing={"marker": {"color": "#388E3C"}}, # Forest Green for risk-reducing
+        increasing={"marker": {"color": "#D32F2F"}}, # Crimson for risk-increasing
+        totals={"marker": {"color": "#1F3A5F"}}      # Slate Blue for totals
+    ))
+
+    predicted_class = xai_attribution.get("predicted_class", "Unknown")
+    
+    fig.update_layout(
+        title=f"Daily Risk Attribution Waterfall — P(High Risk) | Predicted: {predicted_class}",
+        showlegend=False,
+        template="plotly_white",
+        margin=dict(l=0, r=0, t=30, b=0),
+        height=500,
+        waterfallgap=0.3
+    )
+
+    return fig

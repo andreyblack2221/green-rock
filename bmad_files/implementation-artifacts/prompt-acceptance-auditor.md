@@ -1,0 +1,327 @@
+You are an Acceptance Auditor. Review the following diff against the provided spec. Check for: violations of acceptance criteria, deviations from spec intent, missing implementation of specified behavior, contradictions between spec constraints and actual code. Output findings as a Markdown list. Each finding: one-line title, which AC/constraint it violates, and evidence from the diff.
+
+<spec>
+# Story 4.2: Final Outcomes Documentation Board
+
+Status: review
+
+## Story
+
+As an evaluator finishing my review of the application,
+I want to see a clear, un-styled, purely data-driven matrix comparing all strategies side-by-side,
+So that I can quickly extract the final bottom-line numbers without hunting through complex tooltips.
+
+## Acceptance Criteria
+
+1. **Given** the `service_layer` has orchestrated all models and returned the final benchmarking statistics (e.g. Cumulative Return, Max Drawdown, etc.) for all four strategy variants (ML, Baseline, 60/40, SP500)
+   **When** the UI renders the final chapter of the vertical scroll
+   **Then** it displays a highly accessible, stark data matrix summarizing the outcomes
+
+2. **Given** the final matrix is rendering
+   **When** the user attempts to evaluate the data
+   **Then** the matrix utilizes Streamlit's native `st.dataframe` component exactly per UX-DR8, ensuring high legibility and standard tabular contrasts without requiring custom CSS or dense chart interaction mapping
+
+## Developer Context & Guardrails
+
+### Technical Requirements
+- **Data Rendering**: Extract the `strategy_returns` (5th element of `compute_ml_analysis` return tuple) and format it into a summary `pd.DataFrame`.
+- **Layout**: This represents the final "Act" of the "Pitch Deck Scroll" vertical layout. Separate it from previous content using `st.markdown("---")`.
+- **Component Use**: Render the final summary using `st.dataframe` with `use_container_width=True` (if applicable) for maximum legibility on both desktop and mobile. Do not use custom HTML or CSS here.
+
+### Architecture Compliance
+- **Hexagonal Integrity**: UI logic MUST remain within `src/green_rock/entrypoints/streamlit_app.py`. Do NOT add computation logic into the entrypoints file. Ensure `streamlit_app.py` simply maps the `strategy_returns` dictionary into a display-ready Pandas dataframe and renders it.
+- **No Direct API Dependencies**: Ensure the `entrypoints` layer continues to only communicate with the `service_layer`.
+
+### Library & Framework Requirements
+- **Streamlit**: Use Streamlit 1.55+ natively.
+- **Pandas**: Use pandas for reshaping the returns dictionary into the final presentation matrix.
+
+### File Structure Requirements
+- **Modify**: `src/green_rock/entrypoints/streamlit_app.py`
+- **New Tests**: Add `tests/e2e/test_streamlit_outcomes_board.py` (or similar) to ensure the `st.dataframe` is rendered correctly in the UI. Ensure `at.dataframe` is found in the AppTest.
+
+### Previous Story Intelligence
+- **Return Tuple Size Issue**: In Story 4.1, the return tuple of `compute_ml_analysis` was updated to include the `strategy_returns` object as the 5th element. If you mock `compute_ml_analysis` in new E2E tests, ensure you return exactly 5 elements. 
+- **Variable Unpacking**: `strategy_returns` should already be unpacked in `streamlit_app.py`. You just need to format and display it.
+
+### Git Intelligence
+- Recent commits introduced `calculate_strategy_returns` in `quant_model.py` and updated pipeline mocks. Be aware of `tests/e2e/test_streamlit_strategy_returns.py` which already tests if `strategy_returns` are passed to UI properly, you may want to append to it or create a new test.
+
+### Project Context Reference
+- **FR21**: User can view benchmark performance comparison across all strategies
+- **UX-DR1**: Establish a "Pitch Deck Scroll" vertical layout with 3 explicit visual phases ("Acts") separated by `st.markdown("---")` dividers.
+- **UX-DR8**: Standardize Benchmark performance layout exclusively using `st.dataframe` formatting to fulfill accessibility contrast expectations intuitively.
+</spec>
+
+<diff>
+diff --git a/src/green_rock/entrypoints/streamlit_app.py b/src/green_rock/entrypoints/streamlit_app.py
+index 86ae8ca..2a4e943 100644
+--- a/src/green_rock/entrypoints/streamlit_app.py
++++ b/src/green_rock/entrypoints/streamlit_app.py
+@@ -1,7 +1,7 @@
+ import streamlit as st
++import pandas as pd
+ from green_rock.service_layer.pipeline import DataPipeline
+-from green_rock.domain.quant_model import calculate_baseline_regime
+-from green_rock.entrypoints.visualizations import plot_baseline_timeline
++from green_rock.entrypoints.visualizations import plot_baseline_timeline, plot_feature_importance, plot_xai_waterfall
+ 
+ 
+ def render_badge(status: str) -> None:
+@@ -45,12 +45,28 @@ def main():
+     # Initialize data pipeline and fetch data
+     pipeline = DataPipeline()
+     try:
+-        df, status = pipeline.get_data()
++        df_regime, status, _, _ = pipeline.run_pipeline(
++            compute_baseline=True,
++            compute_rf=False
++        )
+         st.session_state["data_source"] = status
+     except Exception as e:
+-        st.error(f"Failed to load data: {e}")
++        st.error(f"Failed to fetch data and compute baseline: {e}")
+         return
+ 
++    rf_importances = None
++    comparative_metrics = {}
++    xai_attribution = None
++    strategy_returns = {}
++    try:
++        rf_features = ["spy_close", "tlt_close", "gld_close", "yield_spread_10y_2y", "spy_volatility_20d"]
++        df_regime, rf_importances, comparative_metrics, xai_attribution, strategy_returns = pipeline.compute_ml_analysis(
++            df_regime, rf_features
++        )
++    except Exception as e:
++        # Instead of failing the entire dashboard, let Act 2 degrade gracefully
++        st.warning(f"\u26a0\ufe0f Machine Learning analysis could not be completed: {e}")
++
+     # Inject fixed-position state badge only when data loaded successfully.
+     # data_source must be present in session_state — do not fall back to
+     # "UNKNOWN" here, since that would misrepresent an error as a known state.
+@@ -58,13 +74,6 @@ def main():
+     if data_source is not None:
+         render_badge(data_source)
+ 
+-    # Process data
+-    try:
+-        df_regime = calculate_baseline_regime(df)
+-    except Exception as e:
+-        st.error(f"Failed to calculate baseline regime: {e}")
+-        return
+-
+     # Title
+     st.title("Green-Rock Adaptive ETF Portfolio")
+ 
+@@ -86,6 +95,113 @@ def main():
+     fig = plot_baseline_timeline(df_regime)
+     st.plotly_chart(fig, use_container_width=True)
+ 
++    st.markdown("---")
++
++    # Act 2: ML Evaluation & Comparison
++    text_col2, _ = st.columns([0.7, 0.3])
++    with text_col2:
++        st.markdown(
++            "### Act 2: Machine Learning Evaluation\n"
++            "This section explicitly juxtaposes the Random Forest model against the baseline, "
++            "allowing for a quick evaluation of the value added by ML complexity."
++        )
++
++    if comparative_metrics:
++        col_m1, col_m2, _ = st.columns([0.25, 0.25, 0.5])
++        
++        baseline_latest = comparative_metrics.get("baseline_latest", "N/A")
++        rf_latest = comparative_metrics.get("rf_latest", "N/A")
++        agreement_rate = comparative_metrics.get("agreement_rate", 0.0)
++        divergence_count = comparative_metrics.get("divergence_count", 0)
++        total_test_days = comparative_metrics.get("total_test_days", 0)
++        
++        with col_m1:
++            st.metric(
++                label="Baseline MA Regime", 
++                value=baseline_latest
++            )
++            
++        with col_m2:
++            divergence_pct = 100.0 - agreement_rate
++            if divergence_pct > 0:
++                delta_val = f"-{divergence_pct:.1f}% Divergence"
++            else:
++                delta_val = "Fully Aligned"
++            st.metric(
++                label="Random Forest Regime", 
++                value=rf_latest,
++                delta=delta_val,
++                delta_color="normal"
++            )
++            
++        st.markdown(f"<small>Out of {total_test_days} test days, the Random Forest diverged from the baseline **{divergence_count} times**.</small>", unsafe_allow_html=True)
++        st.markdown("---")
++
++    text_col3, _ = st.columns([0.7, 0.3])
++    with text_col3:
++        st.markdown(
++            "#### Feature Importance\n"
++            "This chart reveals which quantitative inputs most heavily influenced the Random Forest's baseline regime classification."
++        )
++
++    if rf_importances:
++        fig_importance = plot_feature_importance(rf_importances)
++        st.plotly_chart(fig_importance, use_container_width=True)
++    else:
++        st.warning("Machine Learning outcomes could not be calculated.")
++
++    st.markdown("---")
++
++    # Act 3: The XAI Reveal
++    text_col4, _ = st.columns([0.7, 0.3])
++    with text_col4:
++        st.markdown(
++            "### Act 3: The XAI Reveal\n"
++            "This Waterfall chart breaks down exactly which quantitative features shifted the model into today's risk regime. "
++            "It establishes trust by ensuring the Random Forest is not acting as an unexplainable black box."
++        )
++
++    if xai_attribution:
++        # We also need a try/except for resilience per AC
++        try:
++            fig_xai = plot_xai_waterfall(xai_attribution)
++            st.plotly_chart(fig_xai, use_container_width=True)
++        except Exception as e:
++            st.warning(f"⚠️ XAI visualization could not be completed: {e}")
++    else:
++        st.info("XAI attribution data is not available for today.")
++
++    # Act 4: Final Benchmark Outcomes
++    st.markdown("---")
++
++    text_col5, _ = st.columns([0.7, 0.3])
++    with text_col5:
++        st.subheader("Final Benchmark Outcomes")
++        st.markdown(
++            "This section presents a clear, data-driven matrix comparing all strategies side-by-side, "
++            "allowing for a quick evaluation of the final bottom-line numbers."
++        )
++
++    if strategy_returns:
++        outcomes_data = {
++            "Strategy": [
++                "Baseline MA",
++                "Random Forest",
++                "60/40 Portfolio",
++                "S&P 500"
++            ],
++            "Cumulative Return": [
++                f"{strategy_returns.get('baseline_cumulative', 0.0) * 100:.2f}%",
++                f"{strategy_returns.get('rf_cumulative', 0.0) * 100:.2f}%",
++                f"{strategy_returns.get('benchmark_60_40', 0.0) * 100:.2f}%",
++                f"{strategy_returns.get('benchmark_spy', 0.0) * 100:.2f}%"
++            ]
++        }
++        df_outcomes = pd.DataFrame(outcomes_data)
++        st.dataframe(df_outcomes, use_container_width=True, hide_index=True)
++    else:
++        st.info("Final outcomes data is not available.")
++
+ 
+ if __name__ == "__main__":
+     main()
+diff --git a/tests/e2e/test_streamlit_outcomes_board.py b/tests/e2e/test_streamlit_outcomes_board.py
+new file mode 100644
+index 0000000..f4c99e0
+--- /dev/null
++++ b/tests/e2e/test_streamlit_outcomes_board.py
+@@ -0,0 +1,91 @@
++"""
++E2E tests for the Final Outcomes Documentation Board (Story 4.2).
++
++Tests cover:
++  - App rendering the final benchmark outcomes board without crashing
++  - Presence of st.dataframe when strategy_returns is provided
++  - Presence of fallback info message when strategy_returns is empty
++"""
++import pytest
++import pandas as pd
++from streamlit.testing.v1 import AppTest
++from unittest.mock import patch
++from pathlib import Path
++
++
++ROOT = Path(__file__).parent.parent.parent
++APP_PATH = ROOT / "src" / "green_rock" / "entrypoints" / "streamlit_app.py"
++
++
++@pytest.fixture
++def mock_dates():
++    return pd.date_range("2023-01-01", periods=100)
++
++
++def _build_ml_dataframe(dates):
++    return pd.DataFrame({
++        "spy_close": range(100),
++        "baseline_regime": ["Low"] * 80 + ["High"] * 20,
++        "is_test": [False] * 80 + [True] * 20,
++        "rf_prediction": [None] * 80 + ["Low"] * 10 + ["High"] * 10,
++    }, index=dates)
++
++
++class TestOutcomesBoardE2E:
++    """E2E: Verify the final outcomes board rendering."""
++
++    def test_outcomes_board_renders_dataframe(self, mock_dates):
++        """Verify the dataframe is rendered when strategy_returns is present."""
++        
++        def _mock_run_pipeline(self, *args, **kwargs):
++            return (pd.DataFrame({"spy_close": range(100)}, index=mock_dates), "LIVE", None, None)
++            
++        def _mock_compute_ml(self, df, rf_features, target_col="baseline_regime"):
++            return (
++                _build_ml_dataframe(mock_dates),
++                {"spy_close": 0.6, "tlt_close": 0.4},
++                {"baseline_latest": "High", "rf_latest": "High", "agreement_rate": 50.0,
++                 "divergence_count": 10, "total_test_days": 20},
++                {"base_value": 0.35, "spy_close": 0.12, "tlt_close": -0.08, "predicted_class": "High"},
++                {"baseline_cumulative": 0.15, "rf_cumulative": 0.22,
++                 "benchmark_60_40": 0.10, "benchmark_spy": 0.18},
++            )
++
++        with patch("green_rock.service_layer.pipeline.DataPipeline.run_pipeline", _mock_run_pipeline), \
++             patch("green_rock.service_layer.pipeline.DataPipeline.compute_ml_analysis", _mock_compute_ml):
++            at = AppTest.from_file(str(APP_PATH))
++            at.run(timeout=10)
++
++            assert not at.exception, f"App crashed: {at.exception}"
++            
++            # Check for dataframe rendering
++            assert len(at.dataframe) > 0, "No dataframe rendered in the app"
++            
++            # Check the subheader
++            subheaders = [sh.value for sh in at.subheader]
++            assert "Final Benchmark Outcomes" in subheaders
++
++    def test_outcomes_board_renders_fallback(self, mock_dates):
++        """Verify the fallback message is rendered when strategy_returns is missing."""
++        def _mock_run_pipeline(self, *args, **kwargs):
++            return (pd.DataFrame({"spy_close": range(100)}, index=mock_dates), "LIVE", None, None)
++            
++        def _mock_compute_ml(self, df, rf_features, target_col="baseline_regime"):
++            return (
++                _build_ml_dataframe(mock_dates),
++                {"spy_close": 0.6, "tlt_close": 0.4},
++                {"baseline_latest": "High", "rf_latest": "High", "agreement_rate": 50.0,
++                 "divergence_count": 10, "total_test_days": 20},
++                {"base_value": 0.35, "spy_close": 0.12, "tlt_close": -0.08, "predicted_class": "High"},
++                {},  # Empty strategy_returns
++            )
++
++        with patch("green_rock.service_layer.pipeline.DataPipeline.run_pipeline", _mock_run_pipeline), \
++             patch("green_rock.service_layer.pipeline.DataPipeline.compute_ml_analysis", _mock_compute_ml):
++            at = AppTest.from_file(str(APP_PATH))
++            at.run(timeout=10)
++
++            assert not at.exception, f"App crashed: {at.exception}"
++            
++            infos = [info.value for info in at.info]
++            assert "Final outcomes data is not available." in infos
+</diff>

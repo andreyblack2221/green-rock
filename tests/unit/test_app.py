@@ -73,3 +73,28 @@ def test_app_renders_narrative_shell_structure():
     # Title must be present
     titles = [t.value for t in at.title]
     assert any("Green-Rock" in t for t in titles), "Dashboard title must be rendered"
+
+def test_app_renders_comparative_metrics():
+    """App smoke test: verifies Act 2 comparative metrics are displayed."""
+    import os
+    snapshot_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "data", "static_snapshot.csv"
+    )
+    if not os.path.exists(os.path.normpath(snapshot_path)):
+        import pytest
+        pytest.skip("data/static_snapshot.csv not present — run scripts/generate_snapshot.py first")
+
+    at = AppTest.from_file("src/green_rock/entrypoints/streamlit_app.py")
+    at.run(timeout=10)
+
+    assert not at.exception, f"App raised an exception: {at.exception}"
+
+    markdowns = [md.value for md in at.markdown]
+    has_act_2_title = any("Machine Learning Evaluation" in md for md in markdowns)
+    assert has_act_2_title, "Act 2 Machine Learning Evaluation section must be rendered"
+
+    metrics = [(m.label, m.value) for m in at.metric]
+    labels = [m[0] for m in metrics]
+    assert "Baseline MA Regime" in labels, "Baseline metric must be rendered"
+    assert "Random Forest Regime" in labels, "Random Forest metric must be rendered"
+

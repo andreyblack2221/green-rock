@@ -35,29 +35,29 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: '2026-04-05T20:39:21+01:00'
-last_updated: '2026-04-09T00:52:00+01:00'
+last_updated: '2026-05-09T00:47:50+01:00'
 project: green-rock
 project_key: NOKEY
 tracking_system: file-system
 story_location: /Users/andrey/projects/green-rock/bmad_files/implementation-artifacts
 
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-initial-application-scaffolding-visual-theming: done
   1-2-offline-data-snapshot-generator: done
   1-3-resilient-data-fetcher: done
   1-4-baseline-ma-crossover-classifier: done
   1-5-narrative-shell-interactive-timeline-presentation: done
   epic-1-retrospective: optional
-  epic-2: backlog
-  2-1-random-forest-classifier-pipeline: backlog
-  2-2-feature-importance-extraction-visualization: backlog
-  2-3-baseline-vs-ml-outcome-comparison-view: backlog
-  epic-2-retrospective: optional
-  epic-3: backlog
-  3-1-daily-xai-risk-waterfall-visualization: backlog
-  epic-3-retrospective: optional
-  epic-4: backlog
-  4-1-financial-allocation-benchmarking-engine: backlog
-  4-2-final-outcomes-documentation-board: backlog
-  epic-4-retrospective: optional
+  epic-2: done
+  2-1-random-forest-classifier-pipeline: done
+  2-2-feature-importance-extraction-visualization: done
+  2-3-baseline-vs-ml-outcome-comparison-view: done
+  epic-2-retrospective: done
+  epic-3: in-progress
+  3-1-daily-xai-risk-waterfall-visualization: done
+  epic-3-retrospective: skip
+  epic-4: done
+  4-1-financial-allocation-benchmarking-engine: done
+  4-2-final-outcomes-documentation-board: done
+  epic-4-retrospective: skip

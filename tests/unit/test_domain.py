@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from green_rock.domain.quant_model import calculate_baseline_regime
+from green_rock.domain.quant_model import calculate_baseline_regime, calculate_comparative_metrics
 
 
 def test_calculate_baseline_regime_columns_present():
@@ -113,3 +113,169 @@ def test_calculate_baseline_regime_duplicate_index():
     result_df = calculate_baseline_regime(df, short_window=2, long_window=3)
     assert len(result_df) == 5
     assert "baseline_regime" in result_df.columns
+
+
+def test_train_and_predict_rf_deterministic():
+    from green_rock.domain.quant_model import train_and_predict_rf
+    # Create simple synthetic data
+    df = pd.DataFrame({
+        "feature1": np.linspace(0, 10, 100),
+        "feature2": np.linspace(10, 0, 100),
+        "target_regime": ["Low"] * 33 + ["Medium"] * 34 + ["High"] * 33
+    })
+    
+    result_df1, _, _ = train_and_predict_rf(df.copy(), feature_cols=["feature1", "feature2"], target_col="target_regime", test_ratio=0.2, random_state=42)
+    result_df2, _, _ = train_and_predict_rf(df.copy(), feature_cols=["feature1", "feature2"], target_col="target_regime", test_ratio=0.2, random_state=42)
+    
+    # Must be deterministic
+    pd.testing.assert_series_equal(result_df1["rf_prediction"], result_df2["rf_prediction"])
+    
+def test_train_and_predict_rf_time_split():
+    from green_rock.domain.quant_model import train_and_predict_rf
+    df = pd.DataFrame({
+        "feature1": range(100),
+        "target_regime": ["Low"] * 50 + ["High"] * 50
+    })
+    
+    result_df, _, _ = train_and_predict_rf(df, feature_cols=["feature1"], target_col="target_regime", test_ratio=0.2)
+    
+    # In a time-series split of 100 rows with 0.2 ratio, the last 20 rows are test data.
+    # The first 80 rows should have 'rf_prediction' as NaN or "Train" or empty, or maybe the function predicts for all rows?
+    # Usually we only predict on test data, or we predict on all data but specify 'is_test'.
+    # Let's say it returns 'rf_prediction' for all rows, but 'is_test' boolean mask.
+    assert "rf_prediction" in result_df.columns
+    assert "is_test" in result_df.columns
+    assert not result_df["is_test"].iloc[0]
+    assert result_df["is_test"].iloc[-1]
+    assert result_df["is_test"].sum() == 20
+
+def test_train_and_predict_rf_feature_importances():
+    from green_rock.domain.quant_model import train_and_predict_rf
+    df = pd.DataFrame({
+        "feature1": range(100),
+        "feature2": range(100, 200),
+        "target_regime": ["Low"] * 50 + ["High"] * 50
+    })
+    
+    result_df, importances, _ = train_and_predict_rf(df, feature_cols=["feature1", "feature2"], target_col="target_regime", test_ratio=0.2)
+    
+    assert isinstance(importances, dict)
+    assert set(importances.keys()) == {"feature1", "feature2"}
+    assert sum(importances.values()) == pytest.approx(1.0)
+
+def test_calculate_comparative_metrics_valid():
+    df = pd.DataFrame({
+        "is_test": [False, True, True, True, True],
+        "baseline_regime": ["Low", "High", "High", "Low", "Medium"],
+        "rf_prediction": [np.nan, "High", "Medium", "Low", "Low"]
+    })
+    
+    metrics = calculate_comparative_metrics(df)
+    
+    assert metrics["baseline_latest"] == "Medium"
+    assert metrics["rf_latest"] == "Low"
+    assert metrics["total_test_days"] == 4
+    # matches: High/High (True), High/Medium (False), Low/Low (True), Medium/Low (False)
+    # 2 matches out of 4 -> 50.0%
+    assert metrics["agreement_rate"] == 50.0
+    assert metrics["divergence_count"] == 2
+
+def test_calculate_comparative_metrics_no_test_data():
+    df = pd.DataFrame({
+        "is_test": [False, False],
+        "baseline_regime": ["Low", "Low"],
+        "rf_prediction": [np.nan, np.nan]
+    })
+    
+    metrics = calculate_comparative_metrics(df)
+    assert metrics == {}
+
+def test_calculate_comparative_metrics_missing_columns():
+    df = pd.DataFrame({
+        "baseline_regime": ["Low", "Low"]
+    })
+    
+    metrics = calculate_comparative_metrics(df)
+    assert metrics == {}
+
+def test_calculate_comparative_metrics_full_agreement():
+    """Test that 100% agreement is correctly reported."""
+    df = pd.DataFrame({
+        "is_test": [False, True, True, True],
+        "baseline_regime": ["Low", "High", "Medium", "Low"],
+        "rf_prediction": [np.nan, "High", "Medium", "Low"]
+    })
+    
+    metrics = calculate_comparative_metrics(df)
+    
+    assert metrics["agreement_rate"] == 100.0
+    assert metrics["divergence_count"] == 0
+    assert metrics["total_test_days"] == 3
+
+def test_calculate_comparative_metrics_zero_agreement():
+    """Test that 0% agreement (total divergence) is correctly reported."""
+    df = pd.DataFrame({
+        "is_test": [False, True, True, True],
+        "baseline_regime": ["Low", "High", "Medium", "Low"],
+        "rf_prediction": [np.nan, "Low", "High", "Medium"]
+    })
+    
+    metrics = calculate_comparative_metrics(df)
+    
+    assert metrics["agreement_rate"] == 0.0
+    assert metrics["divergence_count"] == 3
+    assert metrics["total_test_days"] == 3
+
+def test_calculate_daily_xai_attribution():
+    import pandas as pd
+    import numpy as np
+    from sklearn.ensemble import RandomForestClassifier
+    from green_rock.domain.quant_model import calculate_daily_xai_attribution
+
+    df = pd.DataFrame({
+        "f1": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "f2": [5.0, 4.0, 3.0, 2.0, 1.0],
+    })
+    y = ["Low", "Low", "High", "High", "High"]
+    clf = RandomForestClassifier(n_estimators=10, random_state=42)
+    clf.fit(df, y)
+    
+    # Take the last row
+    row = df.iloc[[-1]]
+    result = calculate_daily_xai_attribution(clf, row, ["f1", "f2"])
+    
+    assert "base_value" in result
+    assert "predicted_class" in result
+    assert "f1" in result
+    assert "f2" in result
+    
+    # Calculate sum of base + contributions
+    total_prob = result["base_value"] + result["f1"] + result["f2"]
+    
+    # Contributions are always relative to "High" risk class
+    high_class_idx = np.where(clf.classes_ == "High")[0][0]
+    expected_prob = clf.predict_proba(row)[0][high_class_idx]
+    
+    # Floating point precision match
+    assert total_prob == pytest.approx(expected_prob)
+
+
+def test_calculate_daily_xai_attribution_rejects_multi_row():
+    """F-5: Verify single-row guard rejects multi-row input."""
+    import pandas as pd
+    from sklearn.ensemble import RandomForestClassifier
+    from green_rock.domain.quant_model import calculate_daily_xai_attribution
+
+    df = pd.DataFrame({
+        "f1": [1.0, 2.0, 3.0, 4.0, 5.0],
+        "f2": [5.0, 4.0, 3.0, 2.0, 1.0],
+    })
+    y = ["Low", "Low", "High", "High", "High"]
+    clf = RandomForestClassifier(n_estimators=10, random_state=42)
+    clf.fit(df, y)
+    
+    with pytest.raises(ValueError, match="single-row"):
+        calculate_daily_xai_attribution(clf, df, ["f1", "f2"])
+
+
+

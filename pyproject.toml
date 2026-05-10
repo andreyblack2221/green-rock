@@ -3,3 +3,6 @@ testpaths = ["tests"]
 markers = [
     "integration: marks tests as integration tests that require network access or real file I/O (deselect with '-m \"not integration\"')",
 ]
+filterwarnings = [
+    "ignore::urllib3.exceptions.NotOpenSSLWarning"
+]
