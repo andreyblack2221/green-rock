@@ -5,3 +5,5 @@ pytest>=7.0.0
 yfinance>=0.2.0
 pandas-datareader>=0.10.0
 plotly>=5.0.0
+numpy>=1.24.0
+
