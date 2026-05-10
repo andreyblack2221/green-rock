@@ -1,5 +1,11 @@
 import streamlit as st
 import pandas as pd
+import sys
+import os
+
+# Add src to sys.path for Streamlit Cloud deployment
+sys.path.append(os.path.join(os.getcwd(), "src"))
+
 from green_rock.service_layer.pipeline import DataPipeline
 from green_rock.entrypoints.visualizations import plot_baseline_timeline, plot_feature_importance, plot_xai_waterfall
 
