@@ -54,13 +54,12 @@ class DataFetcher:
         On timeout, raises RuntimeError so the calling service layer triggers the cached-data
         fallback path.
         """
-        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+        try:
             future_prices = executor.submit(fetch_yfinance_data, ["SPY", "TLT", "GLD"], start_date, end_date)
             future_yield = executor.submit(fetch_fred_data, "T10Y2Y", "yield_spread_10y_2y", start_date, end_date)
             
             try:
-                # Use a shared wall-clock deadline so both futures share the 1.9s budget,
-                # not each getting 1.9s independently (which could sum to 3.8s).
                 _deadline = time.monotonic() + 1.9
                 prices_df = future_prices.result(timeout=max(0.0, _deadline - time.monotonic()))
                 yield_df = future_yield.result(timeout=max(0.0, _deadline - time.monotonic()))
@@ -68,6 +67,8 @@ class DataFetcher:
                 raise RuntimeError("Data fetch timed out (> 1.9s wall-clock).") from exc
             except Exception as exc:
                 raise RuntimeError(f"Data fetch failed: {exc}") from exc
+        finally:
+            executor.shutdown(wait=False)
                 
         if prices_df.empty:
             raise RuntimeError("No price data fetched.")
