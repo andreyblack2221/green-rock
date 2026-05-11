@@ -205,4 +205,5 @@ def main():
         st.info("Final outcomes data is not available.")
 
 
-main()
+if __name__ == "__main__":
+    main()
