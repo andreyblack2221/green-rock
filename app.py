@@ -1,6 +1,8 @@
 import sys
 import os
 
+print(">>> APP.PY STARTING <<<")
+
 # Ensure src/ is in the PYTHONPATH so Streamlit Cloud can import green_rock
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
